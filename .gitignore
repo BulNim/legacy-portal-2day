@@ -3,3 +3,5 @@ target/
 .idea/
 *.log
 .tmp/
+.playwright-mcp/
+*.pid
