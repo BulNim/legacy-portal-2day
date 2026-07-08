@@ -12,7 +12,6 @@ import com.ktds.portal.user.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -43,7 +42,8 @@ import java.util.List;
  *    이 서비스의 submit/approve/reject/cancel은 이제 도메인 호출 + 저장·메일·감사로그 부수효과만 조율한다.
  *  - (항목 4) 승인/반려에 복붙되던 권한 판정은 Approval.canBeReviewedBy()로 통합, 메일 발송은 notify* 헬퍼로 추출.
  *  - (항목 5) 강결합 해소: SmtpMailSender/FileAuditLogger 직접 new → MailSender/AuditLogger 인터페이스 생성자 주입(DIP).
- *  나머지(God Class, create() 내부 감사로그 복붙, amountGrade()의 등급 기준값 등)는 아직 그대로다.
+ *  - (항목 4) 감사로그 복붙 해소: 타임스탬프·라인 조립을 AuditLogger로 위임(audit.write(action,id,userId)). create의 type= 꼬리표는 extra로 보존.
+ *  나머지(God Class, amountGrade()의 등급 기준값 등)는 아직 그대로다.
  */
 @Service
 public class ApprovalService {
@@ -80,11 +80,9 @@ public class ApprovalService {
         approval.setUpdatedAt(LocalDateTime.now());
         repo.save(approval);
 
-        // [스멜4] 감사 로그 기록 — 이 6줄이 submit/approve/reject/cancel 에도 복붙 되어 있다.
-        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        String line = "[" + now + "] APPROVAL CREATE id=" + approval.getId()
-                + " by=" + drafterId + " type=" + approval.getType();   // getType()은 int — 감사 로그 정수 출력 레거시 그대로
-        audit.write(line);
+        // [리팩토링] 감사 로그를 AuditLogger에 위임(타임스탬프·라인 조립은 구현체가 담당).
+        // 결재 생성만 붙던 " type=N" 꼬리표는 extra 인자로 그대로 보존(getType()은 int — 정수 출력 레거시 그대로).
+        audit.write("APPROVAL CREATE", approval.getId(), drafterId, "type=" + approval.getType());
         return approval;
     }
 
@@ -132,7 +130,7 @@ public class ApprovalService {
         }
         repo.save(approval);
         notifyApprover(approval);
-        writeAudit("APPROVAL SUBMIT", approval.getId(), actor.getId());
+        audit.write("APPROVAL SUBMIT", approval.getId(), actor.getId());
     }
 
     // [리팩토링] 승인 조율. 권한·상태 판단은 Approval.approve()가 소유한다.
@@ -142,7 +140,7 @@ public class ApprovalService {
         }
         repo.save(approval);
         notifyDrafterApproved(approval);
-        writeAudit("APPROVAL APPROVE", approval.getId(), actor.getId());
+        audit.write("APPROVAL APPROVE", approval.getId(), actor.getId());
     }
 
     // [리팩토링] 반려 조율. 승인과 동일 판정은 Approval.reject()가 소유(조건식 복붙 제거됨).
@@ -152,7 +150,7 @@ public class ApprovalService {
         }
         repo.save(approval);
         notifyDrafterRejected(approval, reason);
-        writeAudit("APPROVAL REJECT", approval.getId(), actor.getId());
+        audit.write("APPROVAL REJECT", approval.getId(), actor.getId());
     }
 
     // [리팩토링] 취소 조율. 기안자 본인·상태 판단은 Approval.cancel()가 소유한다.
@@ -161,7 +159,7 @@ public class ApprovalService {
             return;
         }
         repo.save(approval);
-        writeAudit("APPROVAL CANCEL", approval.getId(), actor.getId());
+        audit.write("APPROVAL CANCEL", approval.getId(), actor.getId());
     }
 
     // [스멜4] 메일 본문 생성/발송 — 각 전이에 흩어져 있던 것을 알림 헬퍼로 추출(문구·수신자는 레거시 그대로).
@@ -195,12 +193,6 @@ public class ApprovalService {
                 + "결재가 반려되었습니다.\n제목: " + approval.getTitle()
                 + "\n사유: " + reason;
         mail.send(drafter.getEmail(), "[결재반려] " + approval.getTitle(), body);
-    }
-
-    // [스멜4] 그나마 추출했지만 create() 안에는 또 복붙이 남아 있다(불완전한 중복 제거).
-    private void writeAudit(String act, Long id, Long userId) {
-        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        audit.write("[" + now + "] " + act + " id=" + id + " by=" + userId);
     }
 
     // [리팩토링] tmp 임시변수 + 5분기 if 제거 — ApprovalStatus가 라벨을 스스로 가지므로 위임만 한다.

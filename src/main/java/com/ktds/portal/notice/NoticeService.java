@@ -8,7 +8,6 @@ import com.ktds.portal.user.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 /**
  * 공지 서비스.
@@ -44,9 +43,8 @@ public class NoticeService {
         n.setCreatedAt(LocalDateTime.now());
         repo.save(n);
 
-        // [스멜4] ApprovalService.create() 와 사실상 동일한 감사 로그 코드(복붙).
-        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        audit.write("[" + now + "] NOTICE CREATE id=" + n.getId() + " by=" + writerId);
+        // [리팩토링] 감사 로그를 AuditLogger에 위임 — 타임스탬프·라인 조립은 구현체가 담당(스멜4 복붙 해소).
+        audit.write("NOTICE CREATE", n.getId(), writerId);
         return n;
     }
 
@@ -71,8 +69,7 @@ public class NoticeService {
                         mail.send(member.getEmail(), "[긴급공지] " + n.getTitle(), body);
                     }
                 }
-                String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                audit.write("[" + now + "] NOTICE PUBLISH id=" + n.getId() + " by=" + userId);
+                audit.write("NOTICE PUBLISH", n.getId(), userId);
             }
         }
     }
