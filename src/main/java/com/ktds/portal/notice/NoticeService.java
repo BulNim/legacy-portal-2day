@@ -2,7 +2,7 @@ package com.ktds.portal.notice;
 
 import com.ktds.portal.common.FileAuditLogger;
 import com.ktds.portal.common.SmtpMailSender;
-import com.ktds.portal.user.Role;
+import com.ktds.portal.user.UserRole;
 import com.ktds.portal.user.User;
 import com.ktds.portal.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -54,8 +54,8 @@ public class NoticeService {
         if (u == null) return;
 
         // [스멜2] 게시 + 긴급공지 메일 + 로그를 한 메서드에서.
-        // [리팩토링] role>=2 매직넘버 → Role.MANAGER.code() (User.role이 Role enum이 되면서 함께 수정, docs/4-12 BL-02).
-        if (u.getRole() >= Role.MANAGER.code()) {   // role>=2 팀장 이상 게시권한 [ApprovalService 와 똑같은 판정 복붙은 여전히 남아있음]
+        // [리팩토링] role>=2 매직넘버 → UserRole.MANAGER.code() (User.role이 UserRole enum이 되면서 함께 수정, docs/4-12 BL-02).
+        if (u.getRole() >= UserRole.MANAGER.code()) {   // role>=2 팀장 이상 게시권한 [ApprovalService 와 똑같은 판정 복붙은 여전히 남아있음]
             if (n.getStatus() == 0) {  // status==0 → 임시(게시 전)일 때만
                 n.setStatus(1);   // 1 = 게시 (PUBLISHED)
                 repo.save(n);
