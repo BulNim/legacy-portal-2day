@@ -3,6 +3,8 @@ package com.ktds.portal.approval;
 import com.ktds.portal.approval.domain.Approval;
 import com.ktds.portal.approval.repository.ApprovalRepository;
 import com.ktds.portal.approval.service.ApprovalService;
+import com.ktds.portal.common.ConsoleAuditLogger;
+import com.ktds.portal.common.ConsoleMailSender;
 import com.ktds.portal.user.User;
 import com.ktds.portal.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(ApprovalService.class)
+// [주입 배선] ApprovalService가 MailSender·AuditLogger를 생성자 주입받으므로, @DataJpaTest 슬라이스에
+// 콘솔 구현 빈을 함께 등록한다(테스트 로직·호출·기대값·DB값은 불변, 배선만 보정).
+@Import({ApprovalService.class, ConsoleMailSender.class, ConsoleAuditLogger.class})
 class ApprovalServiceCharacterizationTest {
 
     @Autowired

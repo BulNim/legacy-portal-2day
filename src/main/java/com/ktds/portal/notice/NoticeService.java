@@ -1,7 +1,7 @@
 package com.ktds.portal.notice;
 
-import com.ktds.portal.common.FileAuditLogger;
-import com.ktds.portal.common.SmtpMailSender;
+import com.ktds.portal.common.AuditLogger;
+import com.ktds.portal.common.MailSender;
 import com.ktds.portal.user.UserRole;
 import com.ktds.portal.user.User;
 import com.ktds.portal.user.UserRepository;
@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter;
  * 공지 서비스.
  * [스멜4 핵심] ApprovalService 와 거의 동일한 "감사 로그/메일 본문" 로직이 또 복붙되어 있다.
  *             → Day2 '중복 코드 제거 자동화 (공통 모듈 추출)' 실습의 주재료.
- * [스멜5] 역시 협력 객체를 직접 new.
+ * [리팩토링] 스멜5 해소 — 협력 객체를 MailSender·AuditLogger 인터페이스로 생성자 주입(DIP).
  */
 @Service
 public class NoticeService {
@@ -22,12 +22,15 @@ public class NoticeService {
     private final NoticeRepository repo;
     private final UserRepository userRepo;
 
-    private final SmtpMailSender mail = new SmtpMailSender();
-    private final FileAuditLogger audit = new FileAuditLogger();
+    private final MailSender mail;
+    private final AuditLogger audit;
 
-    public NoticeService(NoticeRepository repo, UserRepository userRepo) {
+    public NoticeService(NoticeRepository repo, UserRepository userRepo,
+                         MailSender mail, AuditLogger audit) {
         this.repo = repo;
         this.userRepo = userRepo;
+        this.mail = mail;
+        this.audit = audit;
     }
 
     public Notice create(String title, String content, int category, Long writerId, boolean pinned) {

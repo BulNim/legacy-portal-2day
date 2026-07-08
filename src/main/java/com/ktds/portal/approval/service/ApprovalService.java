@@ -5,8 +5,8 @@ import com.ktds.portal.approval.domain.ApprovalAction;
 import com.ktds.portal.approval.domain.ApprovalPriority;
 import com.ktds.portal.approval.domain.ApprovalStatus;
 import com.ktds.portal.approval.repository.ApprovalRepository;
-import com.ktds.portal.common.FileAuditLogger;
-import com.ktds.portal.common.SmtpMailSender;
+import com.ktds.portal.common.AuditLogger;
+import com.ktds.portal.common.MailSender;
 import com.ktds.portal.user.User;
 import com.ktds.portal.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -42,6 +42,7 @@ import java.util.List;
  *  - (항목 2·6) 조율자 정리: 상태 전이 규칙(가드+상태 변경+고액 우선순위 상향)을 Approval 도메인으로 이동(Rich Domain).
  *    이 서비스의 submit/approve/reject/cancel은 이제 도메인 호출 + 저장·메일·감사로그 부수효과만 조율한다.
  *  - (항목 4) 승인/반려에 복붙되던 권한 판정은 Approval.canBeReviewedBy()로 통합, 메일 발송은 notify* 헬퍼로 추출.
+ *  - (항목 5) 강결합 해소: SmtpMailSender/FileAuditLogger 직접 new → MailSender/AuditLogger 인터페이스 생성자 주입(DIP).
  *  나머지(God Class, create() 내부 감사로그 복붙, amountGrade()의 등급 기준값 등)는 아직 그대로다.
  */
 @Service
@@ -50,13 +51,17 @@ public class ApprovalService {
     private final ApprovalRepository repo;
     private final UserRepository userRepo;
 
-    // [스멜5] 강결합 — 협력 객체를 생성자 주입 없이 직접 new 한다. 테스트에서 갈아끼울 수 없다.
-    private final SmtpMailSender mail = new SmtpMailSender();
-    private final FileAuditLogger audit = new FileAuditLogger();
+    // [리팩토링] 스멜5 해소 — 협력 객체를 인터페이스(MailSender·AuditLogger)로 받아 생성자 주입(DIP).
+    // 직접 new를 제거해 테스트에서 목(mock)/콘솔 구현으로 교체 가능해졌다.
+    private final MailSender mail;
+    private final AuditLogger audit;
 
-    public ApprovalService(ApprovalRepository repo, UserRepository userRepo) {
+    public ApprovalService(ApprovalRepository repo, UserRepository userRepo,
+                           MailSender mail, AuditLogger audit) {
         this.repo = repo;
         this.userRepo = userRepo;
+        this.mail = mail;
+        this.audit = audit;
     }
 
     // [스멜8] 파라미터 8개.

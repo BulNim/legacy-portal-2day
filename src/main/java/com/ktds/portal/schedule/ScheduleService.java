@@ -1,6 +1,6 @@
 package com.ktds.portal.schedule;
 
-import com.ktds.portal.common.FileAuditLogger;
+import com.ktds.portal.common.AuditLogger;
 import com.ktds.portal.user.User;
 import com.ktds.portal.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -17,11 +17,13 @@ public class ScheduleService {
 
     private final ScheduleRepository repo;
     private final UserRepository userRepo;
-    private final FileAuditLogger audit = new FileAuditLogger();
+    // [리팩토링] 스멜4/5 — 감사 로거를 AuditLogger 인터페이스로 생성자 주입(DIP).
+    private final AuditLogger audit;
 
-    public ScheduleService(ScheduleRepository repo, UserRepository userRepo) {
+    public ScheduleService(ScheduleRepository repo, UserRepository userRepo, AuditLogger audit) {
         this.repo = repo;
         this.userRepo = userRepo;
+        this.audit = audit;
     }
 
     public Schedule create(String title, Long ownerId, LocalDateTime startAt,
